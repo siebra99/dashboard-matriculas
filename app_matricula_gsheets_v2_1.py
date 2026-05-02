@@ -31,7 +31,7 @@ def get_mes_atual():
 # =============================================================================
 try:
     # URL e Aba configuradas para sua planilha da F5
-    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit#gid=0"
+    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit?usp=sharing&ouid=115939420972517598197&rtpof=true&sd=true"
     NOME_ABA = "DADOS_MATRICULAS_CONSULTOR"
     
     conn = st.connection("gsheets", type=GSheetsConnection)
@@ -107,7 +107,7 @@ with tab3:
 
 # --- CONEXÃO BLINDADA v1.5 (COM TRATAMENTO DE ESPAÇOS) ---
 try:
-    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit#gid=0"
+    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit?usp=sharing&ouid=115939420972517598197&rtpof=true&sd=true"
     NOME_ABA = "DADOS_MATRICULAS_CONSULTOR"
     
     # Codifica o nome da aba para transformar espaços em '%20'
