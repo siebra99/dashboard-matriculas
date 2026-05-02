@@ -32,7 +32,7 @@ def get_mes_atual():
 try:
     # URL e Aba configuradas para sua planilha da F5
     URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit#gid=0"
-    NOME_ABA = "DADOSMATRICULASCONSULTOR"
+    NOME_ABA = "DADOS_MATRICULAS_CONSULTOR"
     
     conn = st.connection("gsheets", type=GSheetsConnection)
     df_dados = conn.read(spreadsheet=URL_PLANILHA, worksheet=NOME_ABA)
