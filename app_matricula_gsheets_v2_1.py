@@ -126,15 +126,18 @@ with tab2:
             
             except AttributeError:
                 st.error
-                # --- CONEXÃO COM LIMPEZA DE CARACTERES ---
+             # --- CONEXÃO COM FILTRO DE CARACTERES INVISÍVEIS ---
 try:
-    # Captura a URL e remove caracteres de controle e espaços
+    # 1. Busca a URL bruta dos Secrets
     raw_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-    url_limpa = "".join(char for char in raw_url if ord(char) > 31).strip()
     
+    # 2. Filtra apenas caracteres válidos (ASCII imprimível)
+    url_limpa = "".join(char for char in raw_url if 31 < ord(char) < 127).strip()
+    
+    # 3. Estabelece a conexão
     conn = st.connection("gsheets", type=GSheetsConnection)
     df_dados = conn.read(spreadsheet=url_limpa, worksheet="DADOS MATRICULAS CONSULTOR")
     
-    # ... resto do código ...
 except Exception as e:
-    st.error(f"Erro de Conexão: {e}")
+    st.error(f"Erro na URL dos Secrets: {e}")
+    st.stop()
