@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # =============================================================================
 # CONFIGURAÇÕES DA PÁGINA
 # =============================================================================
-st.set_page_config(page_title="Gestor de Metas F5 - Final", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Gestor de Metas F5", layout="wide", page_icon="🚀")
 
 # =============================================================================
 # FUNÇÕES DE UTILIDADE
@@ -32,7 +32,7 @@ def get_mes_atual():
 try:
     # URL e Aba configuradas para sua planilha da F5
     URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit#gid=0"
-    NOME_ABA = "DADOS MATRICULAS CONSULTOR"
+    NOME_ABA = "DADOSMATRICULASCONSULTOR"
     
     conn = st.connection("gsheets", type=GSheetsConnection)
     df_dados = conn.read(spreadsheet=URL_PLANILHA, worksheet=NOME_ABA)
@@ -103,3 +103,26 @@ with tab3:
     ranking = df_dados.groupby('Consultor')[MESES].sum().sum(axis=1).sort_values(ascending=False).reset_index()
     ranking.columns = ['Consultor', 'Matrículas']
     st.dataframe(ranking, use_container_width=True)
+    import urllib.parse
+
+# --- CONEXÃO BLINDADA v1.5 (COM TRATAMENTO DE ESPAÇOS) ---
+try:
+    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit#gid=0"
+    NOME_ABA = "DADOS MATRICULAS CONSULTOR"
+    
+    # Codifica o nome da aba para transformar espaços em '%20'
+    nome_aba_codificado = urllib.parse.quote(NOME_ABA)
+    
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # Lendo os dados com o nome da aba já tratado
+    df_dados = conn.read(spreadsheet=URL_PLANILHA, worksheet=nome_aba_codificado)
+    
+    MESES = ['Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro']
+    for m in MESES:
+        if m in df_dados.columns:
+            df_dados[m] = pd.to_numeric(df_dados[m], errors='coerce').fillna(0)
+            
+except Exception as e:
+    st.error(f"Erro de Conexão na v1.5: {e}")
+    st.stop()
