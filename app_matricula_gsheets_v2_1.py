@@ -5,7 +5,7 @@ import unicodedata
 import re
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
-import matplotlib.pyplot as plt
+import urllib.parse
 
 # =============================================================================
 # CONFIGURAÇÕES DA PÁGINA
@@ -22,62 +22,71 @@ def remover_acentos(texto):
     return "".join([c for c in texto_normalizado if unicodedata.category(c) != 'Mn']).upper().strip()
 
 def get_mes_atual():
-    # Mapeamento conforme sua Matriz de Metas de Abril a Setembro
     meses_map = {4:'Abril', 5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 9:'Setembro'}
     return meses_map.get(datetime.now().month, 'Maio')
 
 # =============================================================================
-# CONEXÃO COM GOOGLE SHEETS
+# CONEXÃO BLINDADA v1.5 (TRATAMENTO DE URL E ESPAÇOS)
 # =============================================================================
 try:
-    # URL e Aba configuradas para sua planilha da F5
-    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit?usp=sharing&ouid=115939420972517598197&rtpof=true&sd=true"
-    NOME_ABA = "DADOS_MATRICULAS_CONSULTOR"
+    # URL e Nome da Aba
+    URL_BASE = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit?usp=sharing&ouid=115939420972517598197&rtpof=true&sd=true"
+    NOME_ABA_ORIGINAL = "DADOS_MATRICULAS_CONSULTOR"
+    
+    # Codificação para evitar erro de 'control characters' devido aos espaços
+    nome_aba_url = urllib.parse.quote(NOME_ABA_ORIGINAL)
     
     conn = st.connection("gsheets", type=GSheetsConnection)
-    df_dados = conn.read(spreadsheet=URL_PLANILHA, worksheet=NOME_ABA)
     
+    # Leitura dos dados
+    df_dados = conn.read(spreadsheet=URL_BASE, worksheet=nome_aba_url)
+    
+    # Garantir que colunas de meses sejam numéricas
     MESES = ['Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro']
     for m in MESES:
         if m in df_dados.columns:
             df_dados[m] = pd.to_numeric(df_dados[m], errors='coerce').fillna(0)
             
 except Exception as e:
-    st.error(f"Erro de Conexão: {e}")
+    st.error(f"Erro de Conexão na v1.5: {e}")
+    st.info("Dica: Verifique se o nome da aba no Google Sheets não possui espaços extras no final.")
     st.stop()
 
 # =============================================================================
-# INTERFACE
+# INTERFACE DO USUÁRIO
 # =============================================================================
 
-st.title("🚀 Gestor de Metas F5 - Full Sync")
+st.title("🚀 Gestor de Metas F5 - Conexão Segura")
 
-tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📝 Lançamento", "🏆 Ranking"])
+tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📝 Lançar Matrícula", "🏆 Ranking"])
 
 with tab1:
+    col1, col2, col3 = st.columns(3)
+    
     total_geral = int(df_dados[MESES].sum().sum())
     mes_at = get_mes_atual()
     total_mes = int(df_dados[mes_at].sum())
     
-    col1, col2 = st.columns(2)
-    col1.metric("Acumulado 2026.2", f"{total_geral} / 325")
+    col1.metric("Acumulado Geral", f"{total_geral} / 325")
     col2.metric(f"Total em {mes_at}", total_mes)
-    
-    st.subheader(f"Produção por Curso ({mes_at})")
+    col3.metric("Progresso", f"{(total_geral/325)*100:.1f}%")
+
+    st.subheader(f"Desempenho por Curso ({mes_at})")
     chart_data = df_dados.groupby('Curso')[mes_at].sum().sort_values()
     st.bar_chart(chart_data)
 
 with tab2:
-    st.subheader("Registrar Matrícula")
-    texto_input = st.text_area("Cole o texto da matrícula aqui:", height=200)
+    st.subheader("Registrar Nova Matrícula")
+    texto_input = st.text_area("Cole os dados aqui:", height=200)
     
-    if st.button("🚀 Processar e Salvar"):
+    if st.button("🚀 Confirmar e Salvar na Planilha"):
         if texto_input:
             try:
-                # Extração via Regex baseada no seu padrão de Sobral
+                # Extração via Regex
                 consultor_raw = re.search(r"CONSULTOR RESPONSÁVEL:\s*(.*)", texto_input, re.IGNORECASE).group(1).strip()
                 curso_raw = re.search(r"AREA DESEJADA:\s*(.*)", texto_input, re.IGNORECASE).group(1).strip()
                 
+                # Normalização para busca
                 cons_norm = remover_acentos(consultor_raw)
                 curs_norm = remover_acentos(curso_raw)
                 
@@ -89,40 +98,20 @@ with tab2:
                 
                 if not idx.empty:
                     df_dados.at[idx[0], mes_at] += 1
-                    # Comando de atualização corrigido
-                    conn.update(spreadsheet=URL_PLANILHA, worksheet=NOME_ABA, data=df_dados)
-                    st.success(f"Matrícula de {curso_raw} para {consultor_raw} salva!")
+                    
+                    # Atualização no Google Sheets usando o nome original (a lib trata a escrita)
+                    conn.update(spreadsheet=URL_BASE, worksheet=NOME_ABA_ORIGINAL, data=df_dados)
+                    
+                    st.success(f"Matrícula de {curso_raw} ({consultor_raw}) salva com sucesso!")
                     st.balloons()
                     st.rerun()
                 else:
-                    st.error("Consultor ou Curso não encontrados na planilha.")
+                    st.error("Consultor ou Curso não localizados na planilha.")
             except Exception as e:
-                st.error(f"Erro ao processar: {e}")
+                st.error(f"Erro no processamento: {e}")
 
 with tab3:
+    st.subheader("🏆 Ranking de Consultores")
     ranking = df_dados.groupby('Consultor')[MESES].sum().sum(axis=1).sort_values(ascending=False).reset_index()
     ranking.columns = ['Consultor', 'Matrículas']
     st.dataframe(ranking, use_container_width=True)
-    import urllib.parse
-
-# --- CONEXÃO BLINDADA v1.5 (COM TRATAMENTO DE ESPAÇOS) ---
-try:
-    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit?usp=sharing&ouid=115939420972517598197&rtpof=true&sd=true"
-    NOME_ABA = "DADOS_MATRICULAS_CONSULTOR"
-    
-    # Codifica o nome da aba para transformar espaços em '%20'
-    nome_aba_codificado = urllib.parse.quote(NOME_ABA)
-    
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    
-    # Lendo os dados com o nome da aba já tratado
-    df_dados = conn.read(spreadsheet=URL_PLANILHA, worksheet=nome_aba_codificado)
-    
-    MESES = ['Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro']
-    for m in MESES:
-        if m in df_dados.columns:
-            df_dados[m] = pd.to_numeric(df_dados[m], errors='coerce').fillna(0)
-            
-except Exception as e:
-    st.error(f"Erro de Conexão na v1.5: {e}")
-    st.stop()
