@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 # =============================================================================
 # CONFIGURAÇÕES DA PÁGINA
 # =============================================================================
-st.set_page_config(page_title="Gestor de Metas F5 - Nuvem", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Gestor de Metas F5 - Blindado", layout="wide", page_icon="🚀")
 
-# CSS Customizado para cartões de métricas
+# CSS para estilo visual
 st.markdown("""
     <style>
     .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
@@ -30,40 +30,42 @@ def remover_acentos(texto):
     return "".join([c for c in texto_normalizado if unicodedata.category(c) != 'Mn']).upper().strip()
 
 def get_mes_atual():
-    # Mapeamento de meses para a planilha
+    # Mapeamento de meses (Abril a Setembro conforme sua matriz)
     meses_map = {4:'Abril', 5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 9:'Setembro'}
+    # Retorna o mês atual ou 'Maio' como padrão de segurança
     return meses_map.get(datetime.now().month, 'Maio')
 
 # =============================================================================
-# CONEXÃO COM GOOGLE SHEETS
+# CONEXÃO BLINDADA COM GOOGLE SHEETS (v1.4)
 # =============================================================================
 try:
+    # URL Direta para evitar erros de caracteres nos Secrets
+    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit?gid=1895700493#gid=1895700493"
+    NOME_ABA = "DADOS MATRICULAS CONSULTOR"
+    
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # AJUSTE DE SEGURANÇA: Limpa a URL de qualquer espaço invisível vindo dos Secrets
-    url_planilha = st.secrets["connections"]["gsheets"]["spreadsheet"].strip()
+    # Leitura direta ignorando configurações externas de URL
+    df_dados = conn.read(spreadsheet=URL_PLANILHA, worksheet=NOME_ABA)
     
-    # Lendo os dados da aba específica
-    df_dados = conn.read(spreadsheet=url_planilha, worksheet="DADOS MATRICULAS CONSULTOR")
-    
-    # Conversão de colunas de meses para numérico
+    # Conversão de colunas de meses para números (garantindo que cálculos funcionem)
     MESES = ['Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro']
     for m in MESES:
         if m in df_dados.columns:
             df_dados[m] = pd.to_numeric(df_dados[m], errors='coerce').fillna(0)
             
 except Exception as e:
-    st.error(f"Erro crítico de conexão: {e}")
-    st.info("Dica: Verifique se a URL nos Secrets está correta e se o nome da aba no Google Sheets é 'DADOS MATRICULAS CONSULTOR'.")
+    st.error(f"❌ Erro de Conexão na v1.4: {e}")
+    st.info(f"Certifique-se de que a aba da planilha se chama exatamente: '{NOME_ABA}'")
     st.stop()
 
 # =============================================================================
-# INTERFACE DO USUÁRIO
+# INTERFACE DO DASHBOARD
 # =============================================================================
 
-st.title("🚀 Gestor de Metas F5 - Dashboard HTTPS")
+st.title("🚀 Gestor de Metas F5 - Full Sync")
 
-tab1, tab2, tab3 = st.tabs(["📊 Dashboard Geral", "📝 Lançamento Rápido", "🏆 Ranking de Consultores"])
+tab1, tab2, tab3 = st.tabs(["📊 Dashboard Geral", "📝 Lançamento Rápido", "🏆 Ranking"])
 
 # --- TAB 1: DASHBOARD ---
 with tab1:
@@ -73,71 +75,41 @@ with tab1:
     mes_at = get_mes_atual()
     total_mes = int(df_dados[mes_at].sum())
     meta_objetivo = 325
-    progresso = (total_geral / meta_objetivo) * 100
     
-    col1.metric("Total Acumulado", f"{total_geral} / {meta_objetivo}")
+    col1.metric("Acumulado 2026.2", f"{total_geral} / {meta_objetivo}")
     col2.metric(f"Matrículas em {mes_at}", total_mes)
-    col3.metric("Progresso da Meta", f"{progresso:.1f}%")
+    col3.metric("Status da Meta", f"{(total_geral/meta_objetivo)*100:.1f}%")
 
     st.divider()
-    
-    st.subheader(f"📈 Produção Mensal ({mes_at})")
+    st.subheader(f"📊 Produção por Curso ({mes_at})")
     chart_data = df_dados.groupby('Curso')[mes_at].sum().sort_values(ascending=True)
     st.bar_chart(chart_data)
 
 # --- TAB 2: LANÇAMENTO RÁPIDO ---
 with tab2:
-    st.subheader("📝 Registrar Nova Matrícula")
-    st.write("Cole o texto padrão da matrícula abaixo para atualizar a planilha automaticamente.")
+    st.subheader("📝 Registrar Matrícula Automaticamente")
+    texto_input = st.text_area("Cole o texto da matrícula aqui:", height=200)
     
-    texto_input = st.text_area("Dados do Aluno:", height=200, help="Cole o texto que contém 'AREA DESEJADA' e 'CONSULTOR RESPONSÁVEL'")
-    
-    if st.button("🚀 Processar e Salvar", type="primary"):
+    if st.button("🚀 Processar e Atualizar Planilha", type="primary"):
         if texto_input:
             try:
-                # Extração dos dados usando Regex
+                # Extração via Regex
                 consultor_raw = re.search(r"CONSULTOR RESPONSÁVEL:\s*(.*)", texto_input, re.IGNORECASE).group(1).strip()
                 curso_raw = re.search(r"AREA DESEJADA:\s*(.*)", texto_input, re.IGNORECASE).group(1).strip()
                 
-                # Normalização para comparação (Remove acentos e espaços)
+                # Normalização para comparação
                 cons_norm = remover_acentos(consultor_raw)
                 curs_norm = remover_acentos(curso_raw)
                 
-                # Criar colunas temporárias de comparação no dataframe
+                # Busca na planilha
                 df_temp = df_dados.copy()
-                df_temp['CONS_N'] = df_temp['Consultor'].apply(remover_acentos)
-                df_temp['CURS_N'] = df_temp['Curso'].apply(remover_acentos)
+                df_temp['C_N'] = df_temp['Consultor'].apply(remover_acentos)
+                df_temp['K_N'] = df_temp['Curso'].apply(remover_acentos)
                 
-                # Localizar a linha
-                idx = df_temp[(df_temp['CONS_N'] == cons_norm) & (df_temp['CURS_N'] == curs_norm)].index
+                idx = df_temp[(df_temp['C_N'] == cons_norm) & (df_temp['K_N'] == curs_norm)].index
                 
                 if not idx.empty:
-                    # Incrementa +1 no mês atual
+                    # Soma +1 na memória
                     df_dados.at[idx[0], mes_at] += 1
                     
-                    # Salva a alteração no Google Sheets
-                    conn.update(spreadsheet=url_planilha, worksheet="DADOS MATRICULAS CONSULTOR", data=df_dados)
-                    
-                    st.success(f"✅ Matrícula de {curso_raw} para o consultor {consultor_raw} registrada!")
-                    st.balloons()
-                    st.rerun() # Recarrega para atualizar os números do dashboard
-                else:
-                    st.error(f"❌ Não encontrado: Verifique se '{consultor_raw}' e '{curso_raw}' estão escritos corretamente na planilha.")
-            
-            except AttributeError:
-                st.error
-             # --- CONEXÃO COM FILTRO DE CARACTERES INVISÍVEIS ---
-try:
-    # 1. Busca a URL bruta dos Secrets
-    raw_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-    
-    # 2. Filtra apenas caracteres válidos (ASCII imprimível)
-    url_limpa = "".join(char for char in raw_url if 31 < ord(char) < 127).strip()
-    
-    # 3. Estabelece a conexão
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    df_dados = conn.read(spreadsheet=url_limpa, worksheet="DADOS MATRICULAS CONSULTOR")
-    
-except Exception as e:
-    st.error(f"Erro na URL dos Secrets: {e}")
-    st.stop()
+                    # Salva no Google Sheets (
