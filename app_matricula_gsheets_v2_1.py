@@ -9,7 +9,7 @@ from streamlit_gsheets import GSheetsConnection
 # =============================================================================
 # CONFIGURAÇÕES DA PÁGINA
 # =============================================================================
-st.set_page_config(page_title="Gestor F5 - Versão Estável", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Gestor F5", layout="wide", page_icon="🚀")
 
 def remover_acentos(texto):
     if not isinstance(texto, str): return str(texto)
@@ -25,7 +25,7 @@ def get_mes_atual():
 # =============================================================================
 try:
     # URL LIMPA: Removi o #gid=0 para evitar o erro 404 de conflito de aba
-    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit?usp=sharing"
+    URL_PLANILHA = "https://docs.google.com/spreadsheets/d/1tv9dTG6H-X_h2reOibL8KB99LIUM_YaR/edit?usp=sharing&ouid=115939420972517598197&rtpof=true&sd=true"
     NOME_ABA = "DADOS_MATRICULAS" 
     
     conn = st.connection("gsheets", type=GSheetsConnection)
